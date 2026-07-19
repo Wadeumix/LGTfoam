@@ -151,9 +151,17 @@ async function showAcademyMembersAndQ6(interaction, academyId) {
 
 async function showFinalConfirmation(interaction, channelId) {
   const s = session.get(channelId);
+
+  if (!s.racerId) {
+    const prefix = s.hasCompanyTeam ? 'A' : 'B';
+    s.racerId = await sheets.getNextRacerId(prefix);
+    session.update(channelId, { racerId: s.racerId });
+  }
+
   const embed = new EmbedBuilder()
     .setTitle('最終確認')
     .addFields(
+      { name: 'レーサーID', value: s.racerId || '-', inline: true },
       { name: '名前', value: s.name || '-', inline: true },
       { name: '電話番号', value: s.phone || '-', inline: true },
       { name: '所属', value: s.finalTeam || '-', inline: true },
@@ -176,11 +184,11 @@ async function showFinalConfirmation(interaction, channelId) {
 
 async function submitEntry(interaction, channelId) {
   const s = session.get(channelId);
-  await sheets.appendEntryRow({ name: s.name, phone: s.phone, team: s.finalTeam });
+  await sheets.appendEntryRow({ racerId: s.racerId, name: s.name, phone: s.phone, team: s.finalTeam });
 
   const embed = new EmbedBuilder()
     .setTitle('✅ エントリーが完了しました')
-    .setDescription('ご登録ありがとうございました！名簿への反映が完了しました。')
+    .setDescription(`ご登録ありがとうございました！あなたのレーサーIDは **${s.racerId}** です。`)
     .setColor(0x2ecc71);
 
   await interaction.reply({ embeds: [embed], components: [] });
