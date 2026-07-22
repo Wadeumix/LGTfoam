@@ -11,7 +11,7 @@ const {
 } = require('discord.js');
 const session = require('./session');
 const sheets = require('./sheets');
-const { COMPANY_TEAMS, ACADEMIES, ACADEMY_TERMS } = require('./config');
+const { COMPANY_TEAMS, ACADEMIES, ACADEMY_TERMS, HQ_INVITE_URL } = require('./config');
 
 const CHUNK_SIZE = 25; // Discordのセレクトメニューは1メニューにつき最大25選択肢
 
@@ -188,10 +188,20 @@ async function submitEntry(interaction, channelId) {
 
   const embed = new EmbedBuilder()
     .setTitle('✅ エントリーが完了しました')
-    .setDescription(`ご登録ありがとうございました！あなたのレーサーIDは **${s.racerId}** です。`)
+    .setDescription(
+      [
+        `ご登録ありがとうございました！あなたのレーサーIDは **${s.racerId}** です。`,
+        '',
+        '続いて、下のボタンからLGTの本部サーバーにご参加ください。',
+      ].join('\n'),
+    )
     .setColor(0x2ecc71);
 
-  await interaction.reply({ embeds: [embed], components: [] });
+  const inviteRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setLabel('LGT本部サーバーに参加する').setStyle(ButtonStyle.Link).setURL(HQ_INVITE_URL),
+  );
+
+  await interaction.reply({ embeds: [embed], components: [inviteRow] });
 
   session.remove(channelId);
 

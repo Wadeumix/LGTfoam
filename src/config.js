@@ -29,6 +29,7 @@ module.exports = {
   HQ_GUILD_ID: process.env.HQ_GUILD_ID,
   TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID,
   STAFF_ROLE_ID: process.env.STAFF_ROLE_ID,
+  HQ_INVITE_URL: process.env.HQ_INVITE_URL || 'https://discord.gg/jkbrJkFfp7',
   ENTRY_PANEL_CHANNEL_ID: process.env.ENTRY_PANEL_CHANNEL_ID,
   GOOGLE_SERVICE_ACCOUNT_EMAIL: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
   GOOGLE_PRIVATE_KEY: process.env.GOOGLE_PRIVATE_KEY,
