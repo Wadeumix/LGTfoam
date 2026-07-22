@@ -55,7 +55,8 @@ async function askName_Phone(interaction) {
 
   const racingNameInput = new TextInputBuilder()
     .setCustomId('input_racing_name')
-    .setLabel('レーシングタブレットのお名前（小文字）/racing で登録されているお名前')
+    .setLabel('レーシングタブレットのお名前')
+    .setPlaceholder('/racing で登録されている名前を入力')
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
 
