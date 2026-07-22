@@ -202,8 +202,9 @@ async function findRacerInfoRow(racerId) {
 
 /**
  * 「各レーサー情報」シートに、レーサーの行が無ければ新規作成する（あれば何もしない）。
+ * ステータス列には「レーシングタブレットのお名前（/racing登録名）」を格納する。
  */
-async function ensureRacerInfoRow({ racerId, name, phone, team }) {
+async function ensureRacerInfoRow({ racerId, name, phone, team, racingName }) {
   const existing = await findRacerInfoRow(racerId);
   if (existing) return { created: false };
 
@@ -214,7 +215,7 @@ async function ensureRacerInfoRow({ racerId, name, phone, team }) {
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
-      values: [[racerId, name, phone, team, '', '', 'アクティブ', '']],
+      values: [[racerId, name, phone, team, '', '', racingName || '', '']],
     },
   });
   return { created: true };
@@ -302,7 +303,7 @@ async function appendAllRacersRow({ racerId, name }) {
  * 3. 全レーサー名簿
  * 4. 各レーサー情報（基本情報のみ作成、レースログは空で開始）
  */
-async function registerFullRoster({ racerId, name, phone, team, academySheetName }) {
+async function registerFullRoster({ racerId, name, phone, team, racingName, academySheetName }) {
   await appendEntryRow({ racerId, name, phone, team });
 
   if (academySheetName) {
@@ -310,7 +311,7 @@ async function registerFullRoster({ racerId, name, phone, team, academySheetName
   }
 
   await appendAllRacersRow({ racerId, name });
-  await ensureRacerInfoRow({ racerId, name, phone, team });
+  await ensureRacerInfoRow({ racerId, name, phone, team, racingName });
 }
 
 module.exports = {

@@ -12,6 +12,7 @@ function create(channelId, userId) {
     userId,
     name: null,
     phone: null,
+    racingName: null, // レーシングタブレットのお名前（/racing で登録されている名前）
     hasCompanyTeam: null, // Q3
     companyTeam: null, // Q3=はい の場合に選択
     academyId: null, // Q5 で選択中のアカデミーID

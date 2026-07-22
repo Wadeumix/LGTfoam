@@ -53,9 +53,16 @@ async function askName_Phone(interaction) {
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
 
+  const racingNameInput = new TextInputBuilder()
+    .setCustomId('input_racing_name')
+    .setLabel('レーシングタブレットのお名前（小文字）/racing で登録されているお名前')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
   modal.addComponents(
     new ActionRowBuilder().addComponents(nameInput),
     new ActionRowBuilder().addComponents(phoneInput),
+    new ActionRowBuilder().addComponents(racingNameInput),
   );
 
   await interaction.showModal(modal);
@@ -164,6 +171,7 @@ async function showFinalConfirmation(interaction, channelId) {
       { name: 'レーサーID', value: s.racerId || '-', inline: true },
       { name: '名前', value: s.name || '-', inline: true },
       { name: '街の電話番号', value: s.phone || '-', inline: true },
+      { name: 'レーシングタブレット名', value: s.racingName || '-', inline: true },
       { name: '所属', value: s.finalTeam || '-', inline: true },
     )
     .setDescription(
@@ -191,6 +199,7 @@ async function submitEntry(interaction, channelId) {
     name: s.name,
     phone: s.phone,
     team: s.finalTeam,
+    racingName: s.racingName,
     academySheetName: academy ? academy.sheetName : null,
   });
 
@@ -287,11 +296,12 @@ async function handleInteraction(interaction) {
     return;
   }
 
-  // モーダル送信（Q1, Q2）
+  // モーダル送信（Q1, Q2, レーシングタブレット名）
   if (interaction.isModalSubmit() && interaction.customId === 'entry_modal_name_phone') {
     const name = interaction.fields.getTextInputValue('input_name').trim();
     const phone = interaction.fields.getTextInputValue('input_phone').trim();
-    session.update(channelId, { name, phone });
+    const racingName = interaction.fields.getTextInputValue('input_racing_name').trim();
+    session.update(channelId, { name, phone, racingName });
     await askQ3(interaction);
     return;
   }
