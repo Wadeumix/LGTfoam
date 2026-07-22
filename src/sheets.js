@@ -4,6 +4,7 @@ const {
   GOOGLE_PRIVATE_KEY,
   SPREADSHEET_ID,
   SHEET_NAMES,
+  ACADEMIES,
 } = require('./config');
 
 let sheetsClient = null;
@@ -135,16 +136,22 @@ async function searchEntries(query) {
 }
 
 /**
- * レーサーIDに完全一致する行を「LGTタイムアタックエントリー名簿」から削除する。
+ * 指定シートの指定列（1始まりのインデックス）が完全一致する最初の行を削除する。
  * 戻り値: 削除できた場合はtrue、対象が見つからなければfalse。
  */
-async function deleteEntryByRacerId(racerId) {
-  const rows = await getAllEntryRows();
-  const target = rows.find((r) => r.racerId === racerId);
-  if (!target) return false;
-
+async function deleteRowByColumnValue(sheetName, columnIndex, value) {
   const sheets = getClient();
-  const sheetId = await getSheetIdByName(SHEET_NAMES.ENTRY_LIST);
+  const columnLetter = String.fromCharCode('A'.charCodeAt(0) + columnIndex - 1);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!${columnLetter}2:${columnLetter}`,
+  });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => (r[0] || '') === value);
+  if (idx === -1) return false;
+
+  const rowIndex = idx + 2;
+  const sheetId = await getSheetIdByName(sheetName);
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
@@ -155,14 +162,39 @@ async function deleteEntryByRacerId(racerId) {
             range: {
               sheetId,
               dimension: 'ROWS',
-              startIndex: target.rowIndex - 1,
-              endIndex: target.rowIndex,
+              startIndex: rowIndex - 1,
+              endIndex: rowIndex,
             },
           },
         },
       ],
     },
   });
+  return true;
+}
+
+/**
+ * レーサーIDに完全一致する行を、関係する全シートから削除する。
+ * 1. LGTタイムアタックエントリー名簿
+ * 2. 全レーサー名簿
+ * 3. 各レーサー情報
+ * 4. アカデミー所属者のみ: LGTアカデミー or 3NO1（名前で一致させる）
+ * 戻り値: エントリー名簿から削除できた場合はtrue、対象が見つからなければfalse。
+ */
+async function deleteEntryByRacerId(racerId) {
+  const rows = await getAllEntryRows();
+  const target = rows.find((r) => r.racerId === racerId);
+  if (!target) return false;
+
+  await deleteRowByColumnValue(SHEET_NAMES.ENTRY_LIST, 1, racerId);
+  await deleteRowByColumnValue(SHEET_NAMES.ALL_RACERS, 1, racerId).catch(() => false);
+  await deleteRowByColumnValue(SHEET_NAMES.RACER_INFO, 1, racerId).catch(() => false);
+
+  const academy = ACADEMIES.find((a) => a.label === target.team);
+  if (academy) {
+    await deleteRowByColumnValue(academy.sheetName, 1, target.name).catch(() => false);
+  }
+
   return true;
 }
 

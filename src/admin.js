@@ -98,7 +98,7 @@ async function handleDeleteModalSubmit(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('⚠️ 削除確認')
     .setDescription(
-      `以下のレーサーをエントリー名簿から削除します。よろしいですか？\n\n**${target.racerId}** ${target.name} / 所属: ${target.team}`,
+      `以下のレーサーを全ての名簿（エントリー名簿・全レーサー名簿・各レーサー情報・所属アカデミー）から削除します。よろしいですか？\n\n**${target.racerId}** ${target.name} / 所属: ${target.team}`,
     )
     .setColor(0xe74c3c);
 
@@ -117,7 +117,7 @@ async function handleConfirmDelete(interaction, racerId) {
   const ok = await sheets.deleteEntryByRacerId(racerId);
   if (ok) {
     await interaction.update({
-      content: `🗑 レーサーID「${racerId}」を名簿から削除しました。`,
+      content: `🗑 レーサーID「${racerId}」を全ての名簿から削除しました。`,
       embeds: [],
       components: [],
     });
