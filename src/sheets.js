@@ -201,6 +201,26 @@ async function findRacerInfoRow(racerId) {
 }
 
 /**
+ * 「各レーサー情報」シートに、レーサーの行が無ければ新規作成する（あれば何もしない）。
+ */
+async function ensureRacerInfoRow({ racerId, name, phone, team }) {
+  const existing = await findRacerInfoRow(racerId);
+  if (existing) return { created: false };
+
+  const sheets = getClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAMES.RACER_INFO}!A:H`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [[racerId, name, phone, team, '', '', 'アクティブ', '']],
+    },
+  });
+  return { created: true };
+}
+
+/**
  * 「各レーサー情報」シートに参加レースログを1件追記する。
  * 対象レーサーの行がなければ、エントリー名簿から基本情報を引いて新規作成する。
  */
@@ -241,6 +261,58 @@ async function appendRaceLog(racerId, logText) {
   return { created: true };
 }
 
+/**
+ * アカデミーシート（LGTアカデミー / 3NO1）に1行追加する。
+ * 列: 名前 / 街の電話番号 / 予備1 / 予備2 / 備考
+ */
+async function appendAcademyMember(sheetName, { name, phone }) {
+  const sheets = getClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A:E`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [[name, phone, '', '', '']],
+    },
+  });
+}
+
+/**
+ * 「全レーサー名簿」に1行追加する。
+ * 列: レーサーID / 名前 / レーサー情報（「各レーサー情報」シート参照の案内テキスト）
+ */
+async function appendAllRacersRow({ racerId, name }) {
+  const sheets = getClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAMES.ALL_RACERS}!A:C`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [[racerId, name, '各レーサー情報シート参照']],
+    },
+  });
+}
+
+/**
+ * エントリー確定時に、関係する全シートへまとめて反映する。
+ * 1. LGTタイムアタックエントリー名簿（既存）
+ * 2. アカデミー所属者のみ: LGTアカデミー or 3NO1
+ * 3. 全レーサー名簿
+ * 4. 各レーサー情報（基本情報のみ作成、レースログは空で開始）
+ */
+async function registerFullRoster({ racerId, name, phone, team, academySheetName }) {
+  await appendEntryRow({ racerId, name, phone, team });
+
+  if (academySheetName) {
+    await appendAcademyMember(academySheetName, { name, phone });
+  }
+
+  await appendAllRacersRow({ racerId, name });
+  await ensureRacerInfoRow({ racerId, name, phone, team });
+}
+
 module.exports = {
   getClient,
   appendEntryRow,
@@ -251,4 +323,5 @@ module.exports = {
   deleteEntryByRacerId,
   getEntryStats,
   appendRaceLog,
+  registerFullRoster,
 };

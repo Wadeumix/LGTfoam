@@ -184,7 +184,15 @@ async function showFinalConfirmation(interaction, channelId) {
 
 async function submitEntry(interaction, channelId) {
   const s = session.get(channelId);
-  await sheets.appendEntryRow({ racerId: s.racerId, name: s.name, phone: s.phone, team: s.finalTeam });
+  const academy = s.academyId ? ACADEMIES.find((a) => a.id === s.academyId) : null;
+
+  await sheets.registerFullRoster({
+    racerId: s.racerId,
+    name: s.name,
+    phone: s.phone,
+    team: s.finalTeam,
+    academySheetName: academy ? academy.sheetName : null,
+  });
 
   const embed = new EmbedBuilder()
     .setTitle('✅ エントリーが完了しました')
