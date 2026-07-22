@@ -80,9 +80,175 @@ async function getAcademyMembers(sheetName) {
   return rows.map((r) => r[0]).filter(Boolean);
 }
 
+const sheetIdCache = new Map();
+
+/**
+ * シート名からsheetId（gid）を取得する。行削除などバッチ操作に必要。
+ */
+async function getSheetIdByName(sheetName) {
+  if (sheetIdCache.has(sheetName)) return sheetIdCache.get(sheetName);
+
+  const sheets = getClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  for (const sheet of res.data.sheets || []) {
+    const title = sheet.properties.title;
+    const id = sheet.properties.sheetId;
+    sheetIdCache.set(title, id);
+  }
+
+  if (!sheetIdCache.has(sheetName)) {
+    throw new Error(`シートが見つかりません: ${sheetName}`);
+  }
+  return sheetIdCache.get(sheetName);
+}
+
+/**
+ * 「LGTタイムアタックエントリー名簿」の全行を取得する。
+ * 戻り値の rowIndex はスプレッドシート上の実際の行番号（1始まり、ヘッダーは1行目）。
+ */
+async function getAllEntryRows() {
+  const sheets = getClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAMES.ENTRY_LIST}!A2:E`,
+  });
+  const rows = res.data.values || [];
+  return rows.map((r, i) => ({
+    rowIndex: i + 2,
+    racerId: r[0] || '',
+    name: r[1] || '',
+    phone: r[2] || '',
+    team: r[3] || '',
+    registeredAt: r[4] || '',
+  }));
+}
+
+/**
+ * 名前またはレーサーIDの部分一致で名簿を検索する。
+ */
+async function searchEntries(query) {
+  const rows = await getAllEntryRows();
+  const lower = query.trim().toLowerCase();
+  return rows.filter(
+    (r) => r.racerId.toLowerCase().includes(lower) || r.name.toLowerCase().includes(lower),
+  );
+}
+
+/**
+ * レーサーIDに完全一致する行を「LGTタイムアタックエントリー名簿」から削除する。
+ * 戻り値: 削除できた場合はtrue、対象が見つからなければfalse。
+ */
+async function deleteEntryByRacerId(racerId) {
+  const rows = await getAllEntryRows();
+  const target = rows.find((r) => r.racerId === racerId);
+  if (!target) return false;
+
+  const sheets = getClient();
+  const sheetId = await getSheetIdByName(SHEET_NAMES.ENTRY_LIST);
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: target.rowIndex - 1,
+              endIndex: target.rowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+  return true;
+}
+
+/**
+ * 「LGTタイムアタックエントリー名簿」の全体件数・所属プレフィックス別の内訳を返す。
+ */
+async function getEntryStats() {
+  const rows = await getAllEntryRows();
+  const total = rows.length;
+  let companyCount = 0;
+  let academyCount = 0;
+  const teamCounts = {};
+
+  for (const r of rows) {
+    if (r.racerId.startsWith('A')) companyCount += 1;
+    else if (r.racerId.startsWith('B')) academyCount += 1;
+    teamCounts[r.team] = (teamCounts[r.team] || 0) + 1;
+  }
+
+  return { total, companyCount, academyCount, teamCounts };
+}
+
+/**
+ * 「各レーサー情報」シートからレーサーIDに一致する行を検索する。
+ */
+async function findRacerInfoRow(racerId) {
+  const sheets = getClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAMES.RACER_INFO}!A2:H`,
+  });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => (r[0] || '') === racerId);
+  if (idx === -1) return null;
+  return { rowIndex: idx + 2, row: rows[idx] };
+}
+
+/**
+ * 「各レーサー情報」シートに参加レースログを1件追記する。
+ * 対象レーサーの行がなければ、エントリー名簿から基本情報を引いて新規作成する。
+ */
+async function appendRaceLog(racerId, logText) {
+  const sheets = getClient();
+  const timestamp = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  const logLine = `[${timestamp}] ${logText}`;
+
+  const existing = await findRacerInfoRow(racerId);
+
+  if (existing) {
+    const prevLog = existing.row[4] || '';
+    const newLog = prevLog ? `${prevLog}\n${logLine}` : logLine;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAMES.RACER_INFO}!E${existing.rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newLog]] },
+    });
+    return { created: false };
+  }
+
+  const entryRows = await getAllEntryRows();
+  const entry = entryRows.find((r) => r.racerId === racerId);
+  if (!entry) {
+    throw new Error(`レーサーIDが名簿に見つかりません: ${racerId}`);
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAMES.RACER_INFO}!A:H`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [[racerId, entry.name, entry.phone, entry.team, logLine, '', 'アクティブ', '']],
+    },
+  });
+  return { created: true };
+}
+
 module.exports = {
   getClient,
   appendEntryRow,
   getAcademyMembers,
   getNextRacerId,
+  getAllEntryRows,
+  searchEntries,
+  deleteEntryByRacerId,
+  getEntryStats,
+  appendRaceLog,
 };

@@ -9,6 +9,7 @@ const {
 const { DISCORD_TOKEN } = require('./config');
 const { createEntryTicket } = require('./ticket');
 const { handleInteraction } = require('./flow');
+const { sendAdminPanel, handleAdminInteraction } = require('./admin');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -40,6 +41,21 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply({ embeds: [embed], components: [row] });
         return;
       }
+
+      if (interaction.commandName === 'admin-panel') {
+        await interaction.reply({ content: '管理パネルを設置しました。', ephemeral: true });
+        await sendAdminPanel(interaction.channel);
+        return;
+      }
+    }
+
+    // 本部鯖の管理パネル（名簿検索・削除・TA記録・統計）
+    if (
+      (interaction.isButton() && interaction.customId.startsWith('admin_')) ||
+      (interaction.isModalSubmit() && interaction.customId.startsWith('admin_modal_'))
+    ) {
+      await handleAdminInteraction(interaction);
+      return;
     }
 
     if (interaction.isButton() && interaction.customId === 'open_entry_ticket') {
