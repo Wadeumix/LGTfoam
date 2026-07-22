@@ -41,10 +41,35 @@ async function sendAdminPanel(channel) {
   await channel.send({ embeds: [buildAdminPanelEmbed()], components: [buildAdminPanelRow()] });
 }
 
-const SEARCH_DISPLAY_LIMIT = 30;
+const CONTENT_CHAR_BUDGET = 1850; // Discordのメッセージ本文上限2000文字に対する安全マージン
 
 function formatEntryLine(r) {
-  return `**${r.racerId}** ${r.name} / ${r.phone} / 所属: ${r.team} / 登録: ${r.registeredAt}`;
+  return `${r.racerId} | ${r.name} | ${r.phone} | ${r.team} | ${r.registeredAt}`;
+}
+
+/**
+ * コピペしやすいよう、コードブロック付きの通常テキストメッセージとして一覧を組み立てる。
+ * 文字数上限に収まる件数だけ表示し、超過分は件数のみ案内する。
+ */
+function buildRosterContent(title, rows) {
+  const header = `**${title}**\n`;
+  const fenceOverhead = 8; // ```` ``` ```` 前後 + 改行
+  let used = header.length + fenceOverhead;
+  const lines = [];
+
+  for (const r of rows) {
+    const line = formatEntryLine(r);
+    if (used + line.length + 1 > CONTENT_CHAR_BUDGET) break;
+    lines.push(line);
+    used += line.length + 1;
+  }
+
+  const omitted = rows.length - lines.length;
+  let content = `${header}\`\`\`\n${lines.join('\n')}\n\`\`\``;
+  if (omitted > 0) {
+    content += `\n…他${omitted}件（絞り込むと見つけやすくなります）`;
+  }
+  return content;
 }
 
 function buildRefineRow() {
@@ -55,7 +80,8 @@ function buildRefineRow() {
 
 /**
  * 「🔍 名簿検索」ボタンを押した直後に表示する、全レーサー一覧。
- * その下の「絞り込む」ボタンから、名前/レーサーIDでのフィルタに進める。
+ * コピペしやすいよう通常テキスト（コードブロック）で送信し、
+ * その下の「絞り込む」ボタンから名前/レーサーIDでのフィルタに進める。
  */
 async function showFullRoster(interaction) {
   const rows = await sheets.getAllEntryRows();
@@ -65,15 +91,8 @@ async function showFullRoster(interaction) {
     return;
   }
 
-  const lines = rows.slice(0, SEARCH_DISPLAY_LIMIT).map(formatEntryLine);
-  const omitted = rows.length - lines.length;
-
-  const embed = new EmbedBuilder()
-    .setTitle(`📋 レーサー一覧（全${rows.length}名）`)
-    .setDescription(lines.join('\n') + (omitted > 0 ? `\n…他${omitted}件（絞り込むと見つけやすくなります）` : ''))
-    .setColor(0x3498db);
-
-  await interaction.reply({ embeds: [embed], components: [buildRefineRow()], ephemeral: true });
+  const content = buildRosterContent(`📋 レーサー一覧（全${rows.length}名）`, rows);
+  await interaction.reply({ content, components: [buildRefineRow()], ephemeral: true });
 }
 
 async function showSearchModal(interaction) {
@@ -100,15 +119,8 @@ async function handleSearchSubmit(interaction) {
     return;
   }
 
-  const lines = results.slice(0, SEARCH_DISPLAY_LIMIT).map(formatEntryLine);
-  const omitted = results.length - lines.length;
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🔍 検索結果（${results.length}件${omitted > 0 ? `中${lines.length}件を表示` : ''}）`)
-    .setDescription(lines.join('\n'))
-    .setColor(0x3498db);
-
-  await interaction.reply({ embeds: [embed], components: [buildRefineRow()], ephemeral: true });
+  const content = buildRosterContent(`🔍 検索結果（${results.length}件）`, results);
+  await interaction.reply({ content, components: [buildRefineRow()], ephemeral: true });
 }
 
 async function showDeleteModal(interaction) {
