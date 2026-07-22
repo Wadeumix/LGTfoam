@@ -41,6 +41,41 @@ async function sendAdminPanel(channel) {
   await channel.send({ embeds: [buildAdminPanelEmbed()], components: [buildAdminPanelRow()] });
 }
 
+const SEARCH_DISPLAY_LIMIT = 30;
+
+function formatEntryLine(r) {
+  return `**${r.racerId}** ${r.name} / ${r.phone} / 所属: ${r.team} / 登録: ${r.registeredAt}`;
+}
+
+function buildRefineRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('admin_search_refine').setLabel('🔍 絞り込む').setStyle(ButtonStyle.Primary),
+  );
+}
+
+/**
+ * 「🔍 名簿検索」ボタンを押した直後に表示する、全レーサー一覧。
+ * その下の「絞り込む」ボタンから、名前/レーサーIDでのフィルタに進める。
+ */
+async function showFullRoster(interaction) {
+  const rows = await sheets.getAllEntryRows();
+
+  if (!rows.length) {
+    await interaction.reply({ content: 'まだ名簿にレーサーが登録されていません。', ephemeral: true });
+    return;
+  }
+
+  const lines = rows.slice(0, SEARCH_DISPLAY_LIMIT).map(formatEntryLine);
+  const omitted = rows.length - lines.length;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📋 レーサー一覧（全${rows.length}名）`)
+    .setDescription(lines.join('\n') + (omitted > 0 ? `\n…他${omitted}件（絞り込むと見つけやすくなります）` : ''))
+    .setColor(0x3498db);
+
+  await interaction.reply({ embeds: [embed], components: [buildRefineRow()], ephemeral: true });
+}
+
 async function showSearchModal(interaction) {
   const modal = new ModalBuilder().setCustomId('admin_modal_search').setTitle('名簿検索');
   const input = new TextInputBuilder()
@@ -57,20 +92,23 @@ async function handleSearchSubmit(interaction) {
   const results = await sheets.searchEntries(query);
 
   if (!results.length) {
-    await interaction.reply({ content: `「${query}」に一致するレーサーは見つかりませんでした。`, ephemeral: true });
+    await interaction.reply({
+      content: `「${query}」に一致するレーサーは見つかりませんでした。`,
+      components: [buildRefineRow()],
+      ephemeral: true,
+    });
     return;
   }
 
-  const lines = results
-    .slice(0, 20)
-    .map((r) => `**${r.racerId}** ${r.name} / ${r.phone} / 所属: ${r.team} / 登録: ${r.registeredAt}`);
+  const lines = results.slice(0, SEARCH_DISPLAY_LIMIT).map(formatEntryLine);
+  const omitted = results.length - lines.length;
 
   const embed = new EmbedBuilder()
-    .setTitle(`🔍 検索結果（${results.length}件${results.length > 20 ? '中20件を表示' : ''}）`)
+    .setTitle(`🔍 検索結果（${results.length}件${omitted > 0 ? `中${lines.length}件を表示` : ''}）`)
     .setDescription(lines.join('\n'))
     .setColor(0x3498db);
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], components: [buildRefineRow()], ephemeral: true });
 }
 
 async function showDeleteModal(interaction) {
@@ -194,6 +232,10 @@ async function handleAdminInteraction(interaction) {
     const id = interaction.customId;
 
     if (id === 'admin_search') {
+      await showFullRoster(interaction);
+      return true;
+    }
+    if (id === 'admin_search_refine') {
       await showSearchModal(interaction);
       return true;
     }
