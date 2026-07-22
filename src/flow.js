@@ -209,14 +209,65 @@ async function restart(interaction, channelId) {
     .setTitle('🏁 LGTタイムアタック レーサーエントリー')
     .setDescription('下のボタンからエントリーフォームを開始してください。')
     .setColor(0x2ecc71);
-  const row = new ActionRowBuilder().addComponents(
+  await interaction.reply({ embeds: [embed], components: [buildStartRow()] });
+}
+
+function buildStartRow() {
+  return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('entry_start').setLabel('エントリーを開始する').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('entry_close_ticket').setLabel('🗑 チケットを閉じる').setStyle(ButtonStyle.Secondary),
   );
-  await interaction.reply({ embeds: [embed], components: [row] });
+}
+
+async function showRecovery(interaction, channelId) {
+  session.create(channelId, interaction.user.id);
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ セッションが切れました')
+    .setDescription(
+      [
+        '入力途中の内容が失われました（Botの再起動などが原因の可能性があります）。',
+        'お手数ですが、下のボタンから最初からやり直してください。',
+      ].join('\n'),
+    )
+    .setColor(0xe67e22);
+  await interaction.reply({ embeds: [embed], components: [buildStartRow()] });
+}
+
+async function closeTicket(interaction, channelId) {
+  session.remove(channelId);
+  await interaction.reply({ content: '🗑 このチケットは5秒後に削除されます。' });
+  setTimeout(() => {
+    interaction.channel.delete().catch((err) => console.error('チャンネル削除エラー:', err));
+  }, 5000);
+}
+
+const SESSION_REQUIRED_IDS_PREFIXES = ['q3_', 'q4_', 'q6_yes_', 'q6_no_', 'confirm_submit', 'select_company_team', 'select_academy'];
+
+function requiresExistingSession(id) {
+  return SESSION_REQUIRED_IDS_PREFIXES.some((prefix) => id.startsWith(prefix));
 }
 
 async function handleInteraction(interaction) {
   const channelId = interaction.channel?.id;
+
+  if (interaction.isButton() && interaction.customId === 'entry_close_ticket') {
+    await closeTicket(interaction, channelId);
+    return;
+  }
+
+  // Botの再起動等でメモリ上のセッションが失われている場合は、クラッシュせず復旧導線を出す
+  if (
+    (interaction.isButton() || interaction.isStringSelectMenu()) &&
+    requiresExistingSession(interaction.customId) &&
+    !session.get(channelId)
+  ) {
+    await showRecovery(interaction, channelId);
+    return;
+  }
+  if (interaction.isModalSubmit() && interaction.customId === 'entry_modal_name_phone' && !session.get(channelId)) {
+    await showRecovery(interaction, channelId);
+    return;
+  }
 
   // モーダル送信（Q1, Q2）
   if (interaction.isModalSubmit() && interaction.customId === 'entry_modal_name_phone') {

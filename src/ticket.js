@@ -88,6 +88,10 @@ async function createEntryTicket(interaction) {
       .setCustomId('entry_start')
       .setLabel('エントリーを開始する')
       .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('entry_close_ticket')
+      .setLabel('🗑 チケットを閉じる')
+      .setStyle(ButtonStyle.Secondary),
   );
 
   await channel.send({ content: `${user}`, embeds: [embed], components: [row] });
