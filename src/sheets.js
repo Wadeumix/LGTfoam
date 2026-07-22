@@ -192,7 +192,7 @@ async function findRacerInfoRow(racerId) {
   const sheets = getClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAMES.RACER_INFO}!A2:H`,
+    range: `${SHEET_NAMES.RACER_INFO}!A2:I`,
   });
   const rows = res.data.values || [];
   const idx = rows.findIndex((r) => (r[0] || '') === racerId);
@@ -202,7 +202,7 @@ async function findRacerInfoRow(racerId) {
 
 /**
  * 「各レーサー情報」シートに、レーサーの行が無ければ新規作成する（あれば何もしない）。
- * ステータス列には「レーシングタブレットのお名前（/racing登録名）」を格納する。
+ * 列: レーサーID/名前/街の電話番号/所属チーム/参加レースログ/優勝タイトル/ステータス/備考/レーシングタブレット名
  */
 async function ensureRacerInfoRow({ racerId, name, phone, team, racingName }) {
   const existing = await findRacerInfoRow(racerId);
@@ -211,11 +211,11 @@ async function ensureRacerInfoRow({ racerId, name, phone, team, racingName }) {
   const sheets = getClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAMES.RACER_INFO}!A:H`,
+    range: `${SHEET_NAMES.RACER_INFO}!A:I`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
-      values: [[racerId, name, phone, team, '', '', racingName || '', '']],
+      values: [[racerId, name, phone, team, '', '', 'アクティブ', '', racingName || '']],
     },
   });
   return { created: true };
@@ -252,11 +252,11 @@ async function appendRaceLog(racerId, logText) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAMES.RACER_INFO}!A:H`,
+    range: `${SHEET_NAMES.RACER_INFO}!A:I`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
-      values: [[racerId, entry.name, entry.phone, entry.team, logLine, '', 'アクティブ', '']],
+      values: [[racerId, entry.name, entry.phone, entry.team, logLine, '', 'アクティブ', '', '']],
     },
   });
   return { created: true };
