@@ -49,7 +49,7 @@ async function askName_Phone(interaction) {
 
   const phoneInput = new TextInputBuilder()
     .setCustomId('input_phone')
-    .setLabel('Q2. 電話番号')
+    .setLabel('Q2. 街の電話番号')
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
 
@@ -163,7 +163,7 @@ async function showFinalConfirmation(interaction, channelId) {
     .addFields(
       { name: 'レーサーID', value: s.racerId || '-', inline: true },
       { name: '名前', value: s.name || '-', inline: true },
-      { name: '電話番号', value: s.phone || '-', inline: true },
+      { name: '街の電話番号', value: s.phone || '-', inline: true },
       { name: '所属', value: s.finalTeam || '-', inline: true },
     )
     .setDescription(

@@ -23,7 +23,7 @@ function getClient() {
 
 /**
  * 1ページ目「LGTタイムアタックエントリー名簿」に1行追加する。
- * 列: レーサーID / 名前 / 電話番号 / 所属チーム（アカデミック含む） / 登録日時
+ * 列: レーサーID / 名前 / 街の電話番号 / 所属チーム（アカデミック含む） / 登録日時
  */
 async function appendEntryRow({ racerId, name, phone, team }) {
   const sheets = getClient();
