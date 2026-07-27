@@ -222,7 +222,11 @@ async function deleteEntryByRacerId(racerId) {
 
   const academy = ACADEMIES.find((a) => a.label === target.team);
   if (academy) {
-    await deleteRowByColumnValue(academy.sheetName, 1, target.name).catch(() => false);
+    // C列（予備1、レーサーID格納用）が入っている行はそれで正確に照合。無ければ名前で照合（従来通り）。
+    const deletedById = await deleteRowByColumnValue(academy.sheetName, 3, racerId).catch(() => false);
+    if (!deletedById) {
+      await deleteRowByColumnValue(academy.sheetName, 1, target.name).catch(() => false);
+    }
   }
 
   return true;
@@ -326,9 +330,9 @@ async function appendRaceLog(racerId, logText) {
 
 /**
  * アカデミーシート（LGTアカデミー / 3NO1）に1行追加する。
- * 列: 名前 / 街の電話番号 / 予備1 / 予備2 / 備考
+ * 列: 名前 / 街の電話番号 / 予備1（レーサーIDを格納） / 予備2 / 備考
  */
-async function appendAcademyMember(sheetName, { name, phone }) {
+async function appendAcademyMember(sheetName, { name, phone, racerId }) {
   const sheets = getClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -336,7 +340,7 @@ async function appendAcademyMember(sheetName, { name, phone }) {
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
-      values: [[name, phone, '', '', '']],
+      values: [[name, phone, racerId || '', '', '']],
     },
   });
 }
@@ -369,7 +373,7 @@ async function registerFullRoster({ racerId, name, phone, team, racingName, acad
   await appendEntryRow({ racerId, name, phone, team });
 
   if (academySheetName) {
-    await appendAcademyMember(academySheetName, { name, phone });
+    await appendAcademyMember(academySheetName, { name, phone, racerId });
   }
 
   await appendAllRacersRow({ racerId, name });
