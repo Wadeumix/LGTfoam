@@ -302,6 +302,24 @@ async function handleInteraction(interaction) {
     const name = interaction.fields.getTextInputValue('input_name').trim();
     const phone = interaction.fields.getTextInputValue('input_phone').trim();
     const racingName = interaction.fields.getTextInputValue('input_racing_name').trim();
+
+    const duplicate = await sheets.findEntryByNamePhone(name, phone);
+    if (duplicate) {
+      await interaction.reply({
+        content: [
+          '⚠️ 既に同じ名前・街の電話番号で登録されています。',
+          `登録済みのレーサーID: **${duplicate.racerId}**`,
+          '内容の変更が必要な場合は、本部スタッフまでお問い合わせください。',
+        ].join('\n'),
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('entry_close_ticket').setLabel('🗑 チケットを閉じる').setStyle(ButtonStyle.Secondary),
+          ),
+        ],
+      });
+      return;
+    }
+
     session.update(channelId, { name, phone, racingName });
     await askQ3(interaction);
     return;

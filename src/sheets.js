@@ -135,6 +135,36 @@ async function searchEntries(query) {
   );
 }
 
+function normalizeDupKey(name, phone) {
+  return `${name.trim().toLowerCase()}__${phone.trim().replace(/[-\s]/g, '')}`;
+}
+
+/**
+ * 名前+街の電話番号が完全一致する既存エントリーを探す（新規登録時の重複ブロック用）。
+ */
+async function findEntryByNamePhone(name, phone) {
+  const rows = await getAllEntryRows();
+  const key = normalizeDupKey(name, phone);
+  return rows.find((r) => normalizeDupKey(r.name, r.phone) === key) || null;
+}
+
+/**
+ * 名簿全体を走査し、名前+街の電話番号が同じレーサーをグループ化して返す（2件以上のみ）。
+ * 本部鯖の重複チェックに使用。
+ */
+async function findDuplicateGroups() {
+  const rows = await getAllEntryRows();
+  const groups = new Map();
+
+  for (const r of rows) {
+    const key = normalizeDupKey(r.name, r.phone);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+
+  return [...groups.values()].filter((group) => group.length > 1);
+}
+
 /**
  * 指定シートの指定列（1始まりのインデックス）が完全一致する最初の行を削除する。
  * 戻り値: 削除できた場合はtrue、対象が見つからなければfalse。
@@ -357,4 +387,6 @@ module.exports = {
   getEntryStats,
   appendRaceLog,
   registerFullRoster,
+  findEntryByNamePhone,
+  findDuplicateGroups,
 };

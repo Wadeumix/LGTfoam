@@ -34,6 +34,7 @@ function buildAdminPanelRow() {
     new ButtonBuilder().setCustomId('admin_delete').setLabel('🗑 レーサー削除').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('admin_ta_log').setLabel('🏆 TA記録管理').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('admin_stats').setLabel('📊 統計表示').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('admin_dupes').setLabel('🧭 重複チェック').setStyle(ButtonStyle.Secondary),
   );
 }
 
@@ -237,6 +238,30 @@ async function handleStats(interaction) {
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
+/**
+ * 名前+街の電話番号が同じレーサーをグループ表示する。
+ * どちらを消すかはスタッフが判断し、🗑レーサー削除で対応する（自動削除はしない）。
+ */
+async function handleDupes(interaction) {
+  const groups = await sheets.findDuplicateGroups();
+
+  if (!groups.length) {
+    await interaction.reply({ content: '✅ 重複しているレーサーは見つかりませんでした。', ephemeral: true });
+    return;
+  }
+
+  const lines = [];
+  groups.forEach((group, i) => {
+    lines.push(`--- 重複グループ${i + 1} ---`);
+    group.forEach((r) => lines.push(formatEntryLine(r)));
+  });
+
+  const header = `**🧭 重複チェック結果（${groups.length}組）**\n`;
+  const content = `${header}\`\`\`\n${lines.join('\n')}\n\`\`\`\nどちらを残すか確認のうえ、🗑レーサー削除で古い方を消してください。`;
+
+  await interaction.reply({ content, ephemeral: true });
+}
+
 async function handleAdminInteraction(interaction) {
   if (await denyIfNotStaff(interaction)) return true;
 
@@ -261,6 +286,10 @@ async function handleAdminInteraction(interaction) {
     }
     if (id === 'admin_stats') {
       await handleStats(interaction);
+      return true;
+    }
+    if (id === 'admin_dupes') {
+      await handleDupes(interaction);
       return true;
     }
     if (id.startsWith('admin_confirm_delete_')) {
